@@ -1,0 +1,8 @@
+node_modules/
+functions/node_modules/
+functions/.env
+functions/.env.*
+firebase-debug.log
+firebase-debug.*.log
+workspace-migration-report.json
+.DS_Store

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#07111f">
+  <title>NEXTRONIC | Team Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/studio-upgrade.css">
+  <link rel="stylesheet" href="css/workspace.css">
+</head>
+<body class="workspace-body">
+  <div class="workspace-glow glow-a"></div><div class="workspace-glow glow-b"></div>
+  <main id="workspace-auth" class="auth-screen">
+    <div class="auth-brand-row"><a class="brand" href="index.html"><span class="brand-mark">N</span><span>NEXTRONIC</span></a><span class="private-label"><i class="fa-solid fa-shield-halved"></i> TEAM WORKSPACE</span></div>
+    <section class="auth-layout glass">
+      <div class="auth-story">
+        <span class="eyebrow">BUILD • TRACK • DELIVER</span>
+        <h1>من الفكرة إلى التنفيذ،<br><span>كل شيء في مكان واحد.</span></h1>
+        <p>مساحة خاصة بكل تيم لمتابعة المشروع والخطوات والمواد والمواعيد، ولوحة إدارة كاملة للفرق والتحصيل والمشتريات.</p>
+        <div class="auth-perks"><span><i class="fa-solid fa-diagram-project"></i> Project roadmap</span><span><i class="fa-solid fa-cubes"></i> Materials tracking</span><span><i class="fa-solid fa-chart-line"></i> Clear analytics</span></div>
+        <div class="auth-mini-stats"><div><strong>01</strong><small>Team ID</small></div><div><strong>02</strong><small>One workspace</small></div><div><strong>03</strong><small>Live project data</small></div></div>
+      </div>
+      <div class="auth-form-panel">
+        <div class="auth-form-head"><span class="auth-icon"><i class="fa-solid fa-lock"></i></span><div><span class="eyebrow">SECURE ACCESS</span><h2 id="auth-heading">دخول التيم</h2><p id="auth-subheading">استخدم Team ID وكلمة المرور التي استلمتها.</p></div></div>
+        <div class="auth-switch"><span class="active">دخول آمن باستخدام Team ID</span></div>
+        <form id="team-login-form" class="workspace-form">
+          <label>Team ID<input name="teamId" id="login-team-id" required autocomplete="username" placeholder="مثال: NEX-104" autocapitalize="none" spellcheck="false"></label>
+          <label>كلمة المرور<input name="password" id="login-password" type="password" required autocomplete="current-password" placeholder="كلمة مرور التيم"></label>
+          <button class="btn btn-primary workspace-submit" type="submit"><span>دخول مساحة التيم</span><i class="fa-solid fa-arrow-left"></i></button>
+        </form>
+        <p class="form-disclaimer admin-provisioning-note">حسابات التيمات وكلمات المرور يصدرها الأدمن من داخل المنصة. الدخول بالـ Team ID وكلمة المرور فقط، من غير زر Google أو خانة إيميل.</p>
+        <p id="workspace-auth-status" class="workspace-status" role="status" aria-live="polite"></p>
+        <a href="index.html" class="back-home"><i class="fa-solid fa-arrow-right"></i> الرجوع للموقع الرئيسي</a>
+      </div>
+    </section>
+    <p class="auth-footnote">NEXTRONIC Workspace · Team ID + Password · My-Sen Firebase</p>
+  </main>
+
+  <div id="workspace-app" class="workspace-app hidden">
+    <header class="workspace-topbar glass">
+      <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="فتح القائمة"><i class="fa-solid fa-bars"></i></button>
+      <a class="brand" href="index.html"><span class="brand-mark">N</span><span>NEXTRONIC</span></a>
+      <div class="workspace-topbar-meta"><span class="live-indicator"></span><span id="workspace-role-label">Workspace</span><span class="topbar-divider"></span><strong id="workspace-user-label">Team ID</strong></div>
+      <div class="topbar-actions"><a class="icon-action" href="index.html" title="الموقع الرئيسي"><i class="fa-solid fa-house"></i></a><button id="workspace-logout" class="logout-action" type="button"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>تسجيل الخروج</span></button></div>
+    </header>
+    <div class="workspace-layout">
+      <aside id="workspace-sidebar" class="workspace-sidebar glass">
+        <div class="sidebar-identity"><div class="sidebar-avatar" id="sidebar-avatar">N</div><div><strong id="sidebar-name">NEXTRONIC</strong><small id="sidebar-subtitle">Team workspace</small></div></div>
+        <div class="sidebar-section-label">WORKSPACE</div>
+        <nav class="workspace-nav" aria-label="Workspace navigation">
+          <button data-page="overview" class="active"><i class="fa-solid fa-grid-2"></i><span>نظرة عامة</span></button>
+          <button data-page="team-projects" id="nav-team-projects" class="hidden"><i class="fa-solid fa-diagram-project"></i><span>مشروعي</span></button>
+          <button data-page="teams" data-admin-only class="hidden"><i class="fa-solid fa-people-group"></i><span>إدارة التيمات</span><span id="nav-team-count" class="nav-count">0</span></button>
+          <button data-page="studio" data-admin-only class="hidden"><i class="fa-solid fa-cubes"></i><span>Studio / الاستوديو</span></button>
+          <button data-page="materials" data-admin-only class="hidden"><i class="fa-solid fa-boxes-stacked"></i><span>المواد والمشتريات</span></button>
+          <button data-page="finance" data-admin-only class="hidden"><i class="fa-solid fa-wallet"></i><span>المالية والمحفظة</span></button>
+          <button data-page="meetings"><i class="fa-solid fa-calendar-check"></i><span id="meeting-nav-label">الاجتماعات</span><span id="nav-meeting-count" class="nav-count hidden">0</span></button>
+        </nav>
+        <div class="sidebar-bottom"><div class="secure-chip"><i class="fa-solid fa-shield-halved"></i><span>صلاحيات حسب التيم</span></div><small>Data is stored in Firebase.</small></div>
+      </aside>
+      <div id="workspace-overlay" class="workspace-overlay"></div>
+      <main class="workspace-main">
+        <section id="page-overview" class="workspace-page active">
+          <div class="page-heading"><div><span class="eyebrow">CONTROL ROOM</span><h1 id="overview-title">مساء الابتكار.</h1><p id="overview-subtitle">ملخص مباشر للمشاريع والتيمات والحركة.</p></div><div class="page-heading-actions"><span class="date-pill"><i class="fa-regular fa-calendar"></i><span id="today-label"></span></span><button data-action="refresh" class="btn btn-ghost" type="button"><i class="fa-solid fa-rotate"></i> تحديث البيانات</button></div></div>
+          <div id="overview-kpis" class="workspace-kpi-grid"></div>
+          <div class="overview-grid"><section class="dashboard-panel glass"><div class="panel-heading"><div><span class="eyebrow">PROJECT ACTIVITY</span><h2>حركة المشاريع</h2></div><span class="panel-icon"><i class="fa-solid fa-chart-simple"></i></span></div><div class="chart-frame"><canvas id="overview-project-chart"></canvas></div></section><section class="dashboard-panel glass"><div class="panel-heading"><div><span class="eyebrow">FINANCIAL SNAPSHOT</span><h2>ملخص التحصيل</h2></div><span class="panel-icon"><i class="fa-solid fa-chart-pie"></i></span></div><div class="chart-frame"><canvas id="overview-finance-chart"></canvas></div><div id="finance-summary-line" class="finance-summary-line"></div></section></div>
+          <section class="dashboard-panel glass"><div class="panel-heading"><div><span class="eyebrow">RECENT ACTIVITY</span><h2 id="recent-heading">أحدث حركة</h2></div><button class="text-action" data-go="teams" data-admin-only class="hidden" type="button">عرض كل التيمات <i class="fa-solid fa-arrow-left"></i></button></div><div id="recent-activity" class="activity-list"></div></section>
+          <div id="team-overview-project" class="team-project-home hidden"></div>
+        </section>
+
+        <section id="page-teams" class="workspace-page hidden" data-admin-only>
+          <div class="page-heading"><div><span class="eyebrow">TEAM DIRECTORY</span><h1>كل التيمات</h1><p>الحالة المالية، قائد التيم، الفكرة، والتكليفات قبل فتح ملف أي فريق.</p></div><button id="open-create-team" class="btn btn-primary" type="button"><i class="fa-solid fa-plus"></i> إضافة تيم</button></div>
+          <div class="team-toolbar glass"><label class="search-control"><i class="fa-solid fa-magnifying-glass"></i><input id="team-search" placeholder="بحث بالاسم أو Team ID أو الليدر..."></label><div class="team-filters"><button class="active" data-team-filter="all">الكل</button><button data-team-filter="paid">دفع بالكامل</button><button data-team-filter="partial">دفع جزء</button><button data-team-filter="unpaid">لم يدفع</button></div></div>
+          <div id="team-list-summary" class="section-inline-summary"></div><div id="teams-list" class="teams-list"></div>
+        </section>
+
+        <section id="page-studio" class="workspace-page hidden" data-admin-only>
+          <div class="page-heading compact-heading"><div><span class="eyebrow">MY-SEN STUDIO · CONNECTED</span><h1>الاستوديو الهندسي</h1><p>المشاريع وخطوات التنفيذ والأعضاء والميزانية والتقارير — مع الاحتفاظ بمجموعات My-Sen الأصلية.</p></div><span id="studio-connection-chip" class="connection-chip"><i class="fa-solid fa-link"></i> جاري الاتصال</span></div>
+          <div class="workspace-studio-wrap"><section id="view-studio" class="view">
+                <div class="module-hero studio-hero">
+                    <div class="module-hero-copy"><span class="eyebrow"><i class="fas fa-circle"></i> PROJECT STUDIO / CONTROL ROOM</span><h1>كل تفاصيل المشروع، في مساحة واحدة.</h1><p>من فكرة المشروع وقائمة المواد، إلى الميزانية والخريطة الزمنية وتحديثات الفريق والتسليم.</p></div>
+                    <div class="studio-hero-side"><span class="studio-hero-mark"><i class="fas fa-cubes"></i></span><span id="studio-sync-status" class="studio-status status-active">حفظ محلي متاح • جاري الفحص</span><button class="studio-btn primary" type="button" onclick="openStudioCreatePanel()"><i class="fas fa-plus"></i> مشروع جديد</button></div>
+                </div>
+                <div id="studio-kpis" class="studio-kpi-grid"></div>
+                <div id="studio-source-status" class="studio-source-status" role="status" aria-live="polite">جاري تحميل سجل المشاريع من Firestore…</div>
+                <div class="studio-workspace-grid">
+                    <aside class="studio-project-rail">
+                        <div class="studio-section-heading studio-directory-heading"><div><span class="eyebrow" id="studio-directory-eyebrow">TEAM DIRECTORY</span><h3 id="studio-project-directory-title">اختار التيم</h3><p class="muted-mini" id="studio-project-directory-hint">ابدأ باختيار التيم، ثم افتح استوديوه ومشاريعه ومواده وميزانيته فقط.</p></div><div class="studio-directory-heading-actions"><button id="studio-back-to-team-directory" class="studio-btn tiny hidden" type="button"><i class="fas fa-arrow-right"></i> كل التيمات</button><button class="icon-button" type="button" onclick="openStudioCreatePanel()" aria-label="مشروع جديد"><i class="fas fa-plus"></i></button></div></div>
+                        <div class="studio-team-context hidden" id="studio-team-context"><span class="studio-team-context-dot"></span><div><small>الاستوديو الحالي</small><strong id="studio-context-team-name"></strong><span id="studio-context-team-summary"></span></div></div>
+                        <div class="studio-project-tools">
+                          <label class="studio-project-search"><i class="fas fa-magnifying-glass"></i><input id="studio-project-search" type="search" placeholder="ابحث عن تيم بالاسم…" autocomplete="off"></label>
+                          <div class="studio-project-tool-row">
+                            <select id="studio-project-status-filter" aria-label="فلترة حسب حالة المشروع"><option value="all">كل الحالات</option><option value="planning">قيد التخطيط</option><option value="active">جارٍ التنفيذ</option><option value="review">مراجعة واختبار</option><option value="delivered">تم التسليم</option><option value="paused">متوقف مؤقتًا</option></select>
+                            <select id="studio-project-sort" aria-label="ترتيب المشاريع"><option value="team">ترتيب رقم الفريق</option><option value="deadline">أقرب موعد تسليم</option><option value="updated">آخر تحديث</option></select>
+                          </div>
+                          <div id="studio-project-count" class="studio-project-count">0 مشروع</div>
+                        </div>
+                        <div id="studio-create-panel" class="studio-create-panel card-glass hidden">
+                            <form id="studio-create-form" class="studio-form-grid" onsubmit="return createStudioProject(event)">
+                                <label class="studio-field span-2"><span>اسم المشروع *</span><input name="name" required placeholder="Smart Glove / Rehab Crutch…"></label>
+                                <label class="studio-field"><span>المدرسة / الجامعة</span><input name="school" placeholder="Unknown إذا مش معروف"></label>
+                                <label class="studio-field"><span>العميل / الجهة</span><input name="clientName" placeholder="Unknown"></label>
+                                <label class="studio-field"><span>رقم الفريق</span><input name="teamNumber" placeholder="Team 04 / Unknown"></label><label class="studio-field"><span>Team ID المربوط بالحساب</span><select name="teamId" id="studio-team-id-select"><option value="">مشروع عام / غير مربوط</option></select></label>
+                                <label class="studio-field"><span>أعضاء الفريق</span><input name="teamMembers" placeholder="أسماء الفريق"></label>
+                                <label class="studio-field"><span>نوع المشروع</span><input name="projectType" placeholder="Biomedical / AI / Robotics"></label>
+                                <label class="studio-field"><span>بداية العمل</span><input name="startDate" type="date"></label>
+                                <label class="studio-field"><span>موعد التسليم</span><input name="deadline" type="date"></label>
+                                <label class="studio-field"><span>قيمة المشروع (جنيه)</span><input name="contractValue" type="number" min="0" step="0.01" placeholder="0"></label>
+                                <label class="studio-field"><span>دفعة مستلمة مبدئيًا</span><input name="paidAmount" type="number" min="0" step="0.01" placeholder="0"></label>
+                                <label class="studio-field span-2"><span>فكرة المشروع</span><textarea name="description" rows="3" placeholder="اكتبوا وصف الفكرة والهدف…"></textarea></label>
+                                <label class="studio-field span-2"><span>المشكلة التي يحلها</span><textarea name="problem" rows="2" placeholder="ما المشكلة التي يعالجها المشروع؟"></textarea></label>
+                                <label class="studio-field span-2"><span>المخرجات المطلوبة</span><textarea name="deliverables" rows="2" placeholder="Prototype / Report / Demo / Presentation…"></textarea></label>
+                                <div class="studio-inline-actions span-2"><button class="studio-btn primary" type="submit"><i class="fas fa-check"></i> إنشاء المشروع</button><button class="studio-btn" type="button" onclick="openStudioCreatePanel()">إغلاق</button></div>
+                            </form>
+                        </div>
+                        <div id="studio-project-list" class="studio-project-list"></div>
+                    </aside>
+                    <div class="studio-detail-rail"><div id="studio-empty-state" class="studio-empty-state"><span class="studio-empty-icon"><i class="fas fa-compass"></i></span><h2>ابدأ من هنا</h2><p>أنشئ مشروعًا أو اختر مشروعًا مسجلًا، وسنرتب بياناته وخطواته ومواده وحسابه وتقرير المتابعة.</p><button class="studio-btn primary" type="button" onclick="openStudioCreatePanel()">إنشاء أول مشروع</button></div><div id="studio-project-detail" class="hidden"></div></div>
+                </div>
+            </section></div>
+        </section>
+
+        <section id="page-materials" class="workspace-page hidden" data-admin-only>
+          <div class="page-heading"><div><span class="eyebrow">PROCUREMENT CONTROL</span><h1>المواد والمشتريات</h1><p>احتياجات كل تيم، أوامر الشراء، الفعلي والمستلم، والمواد الناقصة. لا تُفترض أسعار؛ تسجل التكلفة الحقيقية.</p></div><button class="btn btn-ghost" data-go="studio" type="button"><i class="fa-solid fa-cubes"></i> فتح الاستوديو</button></div>
+          <div id="studio-global-ops" class="studio-global-ops"></div>
+        </section>
+
+        <section id="page-finance" class="workspace-page hidden" data-admin-only>
+          <div class="page-heading"><div><span class="eyebrow">FINANCE & CASH FLOW</span><h1>المالية والمحفظة</h1><p>تسجيل الدخل والمصروفات والتحويلات، مع فصل تحصيل التيم عن تكلفة التشغيل والمشتريات.</p></div></div>
+          <div id="finance-kpis" class="workspace-kpi-grid"></div>
+          <div class="finance-layout"><section class="dashboard-panel glass"><div class="panel-heading"><div><span class="eyebrow">NEW TRANSACTION</span><h2>تسجيل حركة مالية</h2></div></div>
+            <form id="finance-transaction-form" class="workspace-form finance-form">
+              <label>نوع الحركة<select name="type"><option value="income">دخل / تحصيل</option><option value="expense">مصروف</option><option value="transfer">تحويل بين محافظ</option></select></label>
+              <div class="form-grid-two"><label>المبلغ (جنيه)<input name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00"></label><label>التاريخ<input name="date" type="date" required></label></div>
+              <div class="form-grid-two"><label>المحفظة / قناة الدفع<select name="account"><option>Instapay</option><option>Cash</option><option>Bank Transfer</option><option>Vodafone Cash</option><option>Other</option></select></label><label>التيم المرتبط<select name="teamId" id="finance-team-select"><option value="">عام / تشغيل المنصة</option></select></label></div>
+              <div class="form-grid-two"><label>التصنيف<input name="category" required placeholder="مواد، شحن، أدوات..."></label><label>الطرف / المورد<input name="party" placeholder="اسم الجهة أو المورد"></label></div>
+              <label>ملاحظات داخلية<textarea name="note" rows="3" placeholder="رقم التحويل، سبب المصروف، أو تفاصيل إضافية"></textarea></label>
+              <button class="btn btn-primary workspace-submit" type="submit"><i class="fa-solid fa-floppy-disk"></i> حفظ الحركة</button>
+            </form>
+          </section><section class="dashboard-panel glass"><div class="panel-heading"><div><span class="eyebrow">CASH FLOW</span><h2>تدفق الأموال</h2></div></div><div class="chart-frame tall"><canvas id="cashflow-chart"></canvas></div></section></div>
+          <section class="dashboard-panel glass"><div class="panel-heading"><div><span class="eyebrow">LEDGER</span><h2>سجل الحركات المالية</h2></div><button id="export-finance-csv" class="btn btn-ghost" type="button"><i class="fa-solid fa-file-csv"></i> تصدير CSV</button></div><div id="finance-transactions" class="table-scroll"></div></section>
+        </section>
+
+        <section id="page-team-projects" class="workspace-page hidden">
+          <div class="page-heading"><div><span class="eyebrow">YOUR PROJECT SPACE</span><h1>مشروع التيم</h1><p>كل الخطوات والمواد والتحديثات الخاصة بتيمك، بدون الملاحظات الداخلية أو حسابات الإدارة.</p></div><button id="request-project-update" class="btn btn-ghost" type="button"><i class="fa-solid fa-message"></i> طلب تحديث</button></div>
+          <div id="team-projects-list" class="team-projects-list"></div>
+        </section>
+
+        <section id="page-meetings" class="workspace-page hidden">
+          <div class="page-heading"><div><span class="eyebrow">MEETING ROOM</span><h1 id="meetings-title">الاجتماعات</h1><p id="meetings-subtitle">تنظيم المواعيد وروابط Google Meet ومتابعة الطلبات.</p></div></div>
+          <div id="meeting-request-form-wrap" class="dashboard-panel glass hidden"><div class="panel-heading"><div><span class="eyebrow">BOOK A SESSION</span><h2>طلب اجتماع مع فريق الإرشاد</h2></div></div><form id="meeting-request-form" class="workspace-form meeting-form"><label>المشروع<select name="projectId" id="meeting-project-select" required></select></label><div class="form-grid-two"><label>التاريخ والوقت<input name="dateTime" type="datetime-local" required></label><label>نوع الاجتماع<select name="kind"><option>مراجعة فكرة</option><option>مراجعة التصميم</option><option>متابعة التنفيذ</option><option>مراجعة المواد</option><option>تجهيز العرض</option></select></label></div><label>ملحوظات / أسئلة<textarea name="note" rows="3" placeholder="إيه اللي محتاجين نراجعه في الاجتماع؟"></textarea></label><button type="submit" class="btn btn-primary workspace-submit"><i class="fa-solid fa-calendar-plus"></i> إرسال طلب الاجتماع</button></form></div>
+          <section class="dashboard-panel glass"><div class="panel-heading"><div><span class="eyebrow">SCHEDULE & REQUESTS</span><h2 id="meetings-list-heading">المواعيد والطلبات</h2></div></div><div id="meeting-requests-list" class="meeting-request-list"></div></section>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="team-detail-modal" class="modal-shell hidden" role="dialog" aria-modal="true" aria-labelledby="team-detail-title"><div class="modal-backdrop" data-modal-close></div><section class="team-detail-card glass"><button class="modal-x" type="button" data-modal-close aria-label="إغلاق">×</button><div id="team-detail-content"></div></section></div>
+  <div id="create-team-modal" class="modal-shell hidden" role="dialog" aria-modal="true"><div class="modal-backdrop" data-modal-close></div><section class="team-detail-card glass create-admin-team-card"><button class="modal-x" type="button" data-modal-close aria-label="إغلاق">×</button><div class="panel-heading"><div><span class="eyebrow">ADMIN · PROVISION TEAM</span><h2>إضافة تيم جديد</h2><p>كلمة المرور تُنشأ من لوحة الإدارة، ولا تُحفظ ضمن بيانات المشروع أو في ملفات الواجهة.</p></div></div><form id="admin-create-team-form" class="workspace-form"><div class="form-grid-two"><label>Team ID<input name="teamId" required pattern="[A-Za-z0-9_-]+" minlength="3" maxlength="32"></label><label>كلمة مرور مؤقتة<input name="password" required type="password" minlength="8"></label></div><label>اسم التيم<input name="teamName" required></label><div class="form-grid-two"><label>اسم الليدر<input name="leaderName" required></label><label>المرحلة<select name="educationLevel"><option value="school">مدارس</option><option value="university">جامعة</option></select></label></div><label>المدرسة / الجامعة<input name="institution"></label><label>أعضاء التيم<input name="members"></label><label>اسم المشروع<input name="projectName" required></label><label>فكرة المشروع<textarea name="projectIdea" rows="3" required></textarea></label><div class="form-grid-two"><label>قيمة المشروع المتفق عليها<input type="number" min="0" step="0.01" name="contractValue" value="0"></label><label>حالة الدفع<select name="paymentPreset"><option value="unpaid">لم يدفع</option><option value="partial">دفع جزء</option><option value="paid">دفع بالكامل</option></select></label></div><label>المبلغ المحصّل عند الإنشاء (لو دفع جزء)<input type="number" min="0" step="0.01" name="initialPayment" value="0"></label><button class="btn btn-primary workspace-submit" type="submit">إنشاء حساب التيم</button></form></section></div>
+  <div id="workspace-toast" class="workspace-toast" role="status" aria-live="polite"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-storage-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <script src="js/workspace-config.js"></script><script src="js/workspace-bootstrap.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="js/studio.js"></script><script type="module" src="js/workspace-app.js"></script>
+</body>
+</html>

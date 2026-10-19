@@ -1,0 +1,4 @@
+RETIRED FOR THE SINGLE-FIREBASE CONFIGURATION.
+Nextronics Workspace now targets the original My-Sen Firebase project `stem-battle` as its single database.
+Use `mysen-workspace-rules.append.txt` and merge it into the EXISTING Firestore rules for stem-battle.
+Do not deploy this file to `nextronic-b2847` as the workspace data is no longer configured to use that project.

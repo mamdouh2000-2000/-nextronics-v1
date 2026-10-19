@@ -1,0 +1,7 @@
+// Merge this path rule into EXISTING Firebase Storage rules for stem-battle.
+// Keep any unrelated legacy rules. The Studio upload section is admin-only in this milestone.
+match /studio_media/{allPaths=**} {
+  allow read, write: if request.auth != null
+    && firestore.get(/databases/(default)/documents/studio_access/$(request.auth.uid)).data.role == 'admin'
+    && firestore.get(/databases/(default)/documents/studio_access/$(request.auth.uid)).data.active == true;
+}

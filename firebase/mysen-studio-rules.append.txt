@@ -1,0 +1,2 @@
+DEPRECATED DUPLICATE — all workspace and Studio data now share the same Firebase project (`stem-battle`).
+Use the combined `mysen-workspace-rules.append.txt` so Studio and Nextronics collections are governed consistently.

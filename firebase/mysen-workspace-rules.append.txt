@@ -1,0 +1,66 @@
+// FREE-PLAN Workspace rules for Firebase project stem-battle.
+// Insert helper functions inside the existing `match /databases/{database}/documents { ... }` scope. Replace any prior Nextronics Workspace-specific match blocks / `nxAdminClaim` custom-token checks with these Spark blocks, but preserve unrelated My-Sen learning/academy match blocks.
+// Remove/revise any broader overlapping allow rule, because Firestore allows a request if ANY matching rule grants it.
+function nxSparkSignedIn() { return request.auth != null; }
+function nxSparkUserPath(uid) { return /databases/$(database)/documents/workspaceUsers/$(uid); }
+function nxSparkSelfProfileExists() { return nxSparkSignedIn() && exists(nxSparkUserPath(request.auth.uid)); }
+function nxSparkSelfProfile() { return get(nxSparkUserPath(request.auth.uid)).data; }
+function nxSparkActiveUser() { return nxSparkSelfProfileExists() && nxSparkSelfProfile().active == true; }
+function nxSparkAdmin() { return nxSparkActiveUser() && nxSparkSelfProfile().role == 'admin'; }
+function nxSparkOwnTeam(teamId) { return nxSparkActiveUser() && nxSparkSelfProfile().role == 'team' && nxSparkSelfProfile().teamId == teamId; }
+function nxSparkStudioAccessExists() { return nxSparkSignedIn() && exists(/databases/$(database)/documents/studio_access/$(request.auth.uid)); }
+function nxSparkStudioAccess() { return get(/databases/$(database)/documents/studio_access/$(request.auth.uid)).data; }
+function nxSparkStudioAdmin() { return nxSparkAdmin() && nxSparkStudioAccessExists() && nxSparkStudioAccess().role == 'admin' && nxSparkStudioAccess().active == true; }
+function nxSparkStudioTeam() { return nxSparkOwnTeam(nxSparkSelfProfile().teamId) && nxSparkStudioAccessExists() && nxSparkStudioAccess().role == 'team' && nxSparkStudioAccess().active == true && nxSparkStudioAccess().teamId == nxSparkSelfProfile().teamId; }
+
+// Legacy collections from the Functions edition are not used by this Spark edition.
+match /workspaceCredentials/{teamId} { allow read, write: if false; }
+match /workspaceLoginAttempts/{attemptId} { allow read, write: if false; }
+
+// Pre-auth lookup: a Team ID resolves to an Auth email before the user is signed in.
+// Exact get is public so nonexistent legacy directory records can be detected safely; all document fields are therefore readable.
+// Store no passwords or private notes here. Prefer a non-personal alias in authEmail. Directory writes are admin-only.
+match /teamLoginDirectory/{teamId} {
+  allow get: if true;
+  allow list: if false;
+  allow create, update, delete: if nxSparkAdmin();
+}
+match /workspaceUsers/{uid} {
+  allow get: if nxSparkSignedIn() && (request.auth.uid == uid || nxSparkAdmin());
+  allow list: if nxSparkAdmin();
+  allow create, update, delete: if nxSparkAdmin();
+}
+match /workspaceTeams/{teamId} {
+  allow get, list: if nxSparkAdmin() || nxSparkOwnTeam(teamId);
+  allow create, update, delete: if nxSparkAdmin();
+}
+match /workspaceTransactions/{transactionId} {
+  allow read, write: if nxSparkAdmin();
+}
+match /workspaceMeetingRequests/{requestId} {
+  allow read: if nxSparkAdmin() || nxSparkOwnTeam(resource.data.teamId);
+  allow create: if nxSparkActiveUser() && nxSparkSelfProfile().role == 'team' && request.resource.data.teamId == nxSparkSelfProfile().teamId;
+  allow update, delete: if nxSparkAdmin();
+}
+match /studio_access/{uid} {
+  allow get: if nxSparkSignedIn() && (request.auth.uid == uid || nxSparkAdmin());
+  allow list: if nxSparkAdmin();
+  allow create, update, delete: if nxSparkAdmin();
+}
+// Studio source contains private purchase costs, supplier details, and internal finance notes.
+match /studio_projects/{projectId} {
+  allow read, write: if nxSparkStudioAdmin();
+}
+match /studio_team_views/{teamId}/projects/{projectId} {
+  allow read: if nxSparkStudioAdmin() || nxSparkOwnTeam(teamId);
+  allow create, update, delete: if nxSparkStudioAdmin();
+}
+match /studio_material_catalog/{itemId} {
+  allow read, write: if nxSparkStudioAdmin();
+}
+match /studio_procurements/{recordId} {
+  allow read, write: if nxSparkStudioAdmin();
+}
+match /studio_media/{path=**} {
+  allow read, write: if nxSparkStudioAdmin();
+}

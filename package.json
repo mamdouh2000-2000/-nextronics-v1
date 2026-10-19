@@ -1,0 +1,12 @@
+{
+  "name": "nextronic-workspace",
+  "version": "3.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check js/app.js && node --check js/workspace-app.js && node --check js/workspace-bootstrap.js && node --check js/studio.js && node --check js/contact-links.js && node --check tools/migrate-workspace-data.cjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}

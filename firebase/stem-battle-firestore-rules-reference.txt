@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Shared helpers for Workspace / Studio.
+    function nxSparkSignedIn() { return request.auth != null; }
+    function nxSparkUserPath(uid) { return /databases/$(database)/documents/workspaceUsers/$(uid); }
+    function nxSparkSelfProfileExists() { return nxSparkSignedIn() && exists(nxSparkUserPath(request.auth.uid)); }
+    function nxSparkSelfProfile() { return get(nxSparkUserPath(request.auth.uid)).data; }
+    function nxSparkActiveUser() { return nxSparkSelfProfileExists() && nxSparkSelfProfile().active == true; }
+    function nxSparkAdmin() { return nxSparkActiveUser() && nxSparkSelfProfile().role == 'admin'; }
+    function nxSparkOwnTeam(teamId) { return nxSparkActiveUser() && nxSparkSelfProfile().role == 'team' && nxSparkSelfProfile().teamId == teamId; }
+    function nxSparkStudioAccessExists() { return nxSparkSignedIn() && exists(/databases/$(database)/documents/studio_access/$(request.auth.uid)); }
+    function nxSparkStudioAccess() { return get(/databases/$(database)/documents/studio_access/$(request.auth.uid)).data; }
+    function nxSparkStudioAdmin() { return nxSparkAdmin() && nxSparkStudioAccessExists() && nxSparkStudioAccess().role == 'admin' && nxSparkStudioAccess().active == true; }
+    function nxSparkStudioTeam() { return nxSparkOwnTeam(nxSparkSelfProfile().teamId) && nxSparkStudioAccessExists() && nxSparkStudioAccess().role == 'team' && nxSparkStudioAccess().active == true && nxSparkStudioAccess().teamId == nxSparkSelfProfile().teamId; }
+
+    // Existing public-site account profiles.
+    function nxAppUserPath(uid) { return /databases/$(database)/documents/users/$(uid); }
+    function nxAppCoreAdmin() { return request.auth != null && request.auth.token.email != null && request.auth.token.email in ['mmdwhrdwan82@gmail.com', 'smha13334@gmail.com', 'mamdouh2008radwan@gmail.com']; }
+    function nxAppEngineer() { return nxAppCoreAdmin() || (request.auth != null && exists(nxAppUserPath(request.auth.uid)) && (get(nxAppUserPath(request.auth.uid)).data.role == 'engineer' || get(nxAppUserPath(request.auth.uid)).data.role == 'admin')); }
+
+    match /users/{uid} {
+      allow get: if request.auth != null && (request.auth.uid == uid || nxAppEngineer());
+      allow list: if nxAppEngineer();
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.role == 'student';
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role;
+      allow delete: if false;
+
+      match /projects/{projectId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+      match /aiMessages/{messageId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Engineer work items are restricted to the signed-in engineer who owns them.
+    match /projects/{projectId} {
+      allow get, list: if nxAppEngineer() && resource.data.engineerId == request.auth.uid;
+      allow create: if nxAppEngineer() && request.resource.data.engineerId == request.auth.uid;
+      allow update: if nxAppEngineer() && resource.data.engineerId == request.auth.uid && request.resource.data.engineerId == request.auth.uid;
+      allow delete: if nxAppEngineer() && resource.data.engineerId == request.auth.uid;
+    }
+    match /tasks/{taskId} {
+      allow get, list: if nxAppEngineer() && resource.data.engineerId == request.auth.uid;
+      allow create: if nxAppEngineer() && request.resource.data.engineerId == request.auth.uid;
+      allow update: if nxAppEngineer() && resource.data.engineerId == request.auth.uid && request.resource.data.engineerId == request.auth.uid;
+      allow delete: if nxAppEngineer() && resource.data.engineerId == request.auth.uid;
+    }
+
+    // Content collections explicitly named as shared/public in the database.
+    // Reads are public; writes require an authenticated engineer profile.
+    match /flashcards/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if nxAppEngineer();
+    }
+    match /shared_custom_tasks/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if nxAppEngineer();
+    }
+    match /shared_exams/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if nxAppEngineer();
+    }
+    match /shared_materials/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if nxAppEngineer();
+    }
+    match /shared_polls/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if nxAppEngineer();
+    }
+    match /shared_projects/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if nxAppEngineer();
+    }
+
+    // Workspace account directory: a single exact get is necessary before password login.
+    // Do not store passwords or private notes in this collection. authEmail is readable by design.
+    match /teamLoginDirectory/{teamId} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if nxSparkAdmin();
+    }
+    match /workspaceCredentials/{teamId} { allow read, write: if false; }
+    match /workspaceLoginAttempts/{attemptId} { allow read, write: if false; }
+    match /workspaceUsers/{uid} {
+      allow get: if nxSparkSignedIn() && (request.auth.uid == uid || nxSparkAdmin());
+      allow list: if nxSparkAdmin();
+      allow create, update, delete: if nxSparkAdmin();
+    }
+    match /workspaceTeams/{teamId} {
+      allow get, list: if nxSparkAdmin() || nxSparkOwnTeam(teamId);
+      allow create, update, delete: if nxSparkAdmin();
+    }
+    match /workspaceTransactions/{transactionId} {
+      allow read, write: if nxSparkAdmin();
+    }
+    match /workspaceMeetingRequests/{requestId} {
+      allow read: if nxSparkAdmin() || nxSparkOwnTeam(resource.data.teamId);
+      allow create: if nxSparkActiveUser()
+        && nxSparkSelfProfile().role == 'team'
+        && request.resource.data.teamId == nxSparkSelfProfile().teamId;
+      allow update, delete: if nxSparkAdmin();
+    }
+    match /studio_access/{uid} {
+      allow get: if nxSparkSignedIn() && (request.auth.uid == uid || nxSparkAdmin());
+      allow list: if nxSparkAdmin();
+      allow create, update, delete: if nxSparkAdmin();
+    }
+    match /studio_projects/{projectId} {
+      allow read, write: if nxSparkStudioAdmin();
+    }
+    match /studio_team_views/{teamId}/projects/{projectId} {
+      allow read: if nxSparkStudioAdmin() || nxSparkOwnTeam(teamId);
+      allow create, update, delete: if nxSparkStudioAdmin();
+    }
+    match /studio_material_catalog/{itemId} {
+      allow read, write: if nxSparkStudioAdmin();
+    }
+    match /studio_procurements/{recordId} {
+      allow read, write: if nxSparkStudioAdmin();
+    }
+    match /studio_media/{path=**} {
+      allow read, write: if nxSparkStudioAdmin();
+    }
+    match /team_chat/{messageId} {
+      allow read: if nxSparkAdmin() || (nxSparkActiveUser() && resource.data.teamId == nxSparkSelfProfile().teamId);
+      allow create: if nxSparkActiveUser() && request.resource.data.teamId == nxSparkSelfProfile().teamId;
+      allow update, delete: if nxSparkAdmin();
+    }
+
+    // Default deny for collection paths not explicitly modelled above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
