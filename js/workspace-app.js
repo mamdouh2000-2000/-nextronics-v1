@@ -1,3 +1,4 @@
+// NEXTRONIC Workspace v3.4 — meeting slot calendar, atomic booking/approval, and live notices.
 import { initializeApp, getApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
 import {
   getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
@@ -35,6 +36,8 @@ let liveMessagesUnsub = null;
 let meetingLoadError = '';
 let slotLoadError = '';
 let consultationLoadError = '';
+let meetingFeedInitialised = false;
+let consultationFeedInitialised = false;
 let teamFilter = "all";
 let projectChart = null, financeChart = null, cashflowChart = null;
 let toastTimer = null;
@@ -101,6 +104,49 @@ function showToast(message, type='info') {
   const el=$('#workspace-toast'); if(!el) return;
   el.textContent=message; el.classList.add('show'); el.style.borderColor=type==='error'?'rgba(255,143,156,.35)':type==='success'?'rgba(113,237,205,.3)':'';
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),4200);
+}
+function notifyWorkspace(title, body) {
+  if (document.visibilityState === 'visible') {
+    showToast(`${title}: ${body}`, 'info');
+    return;
+  }
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification(title, { body, icon: 'assets/hero-dark-ai.png', tag: `${title}-${Date.now()}` }); }
+    catch (error) { console.warn('Browser notification could not be shown', error); }
+  }
+}
+async function enableWorkspaceNotifications() {
+  if (!('Notification' in window)) return showToast('المتصفح لا يدعم إشعارات سطح المكتب. ستظل التحديثات داخل المنصة.', 'error');
+  if (Notification.permission === 'granted') return showToast('إشعارات المتصفح مفعلة بالفعل.', 'success');
+  if (Notification.permission === 'denied') return showToast('الإشعارات محظورة من إعدادات المتصفح. اسمح بها من إعدادات الموقع.', 'error');
+  try {
+    const permission = await Notification.requestPermission();
+    showToast(permission === 'granted' ? 'تم تفعيل إشعارات المتصفح أثناء عمل الموقع.' : 'لم يتم السماح بالإشعارات؛ ستظل التحديثات داخل المنصة.', permission === 'granted' ? 'success' : 'info');
+  } catch (error) { showToast(authMessage(error), 'error'); }
+}
+function notifyMeetingChanges(previousRows, nextRows) {
+  const previous = new Map(previousRows.map(row => [row.id, row]));
+  for (const row of nextRows) {
+    const old = previous.get(row.id);
+    if (isAdmin()) {
+      if (row.status === 'pending' && (!old || old.status !== 'pending')) {
+        notifyWorkspace('طلب اجتماع جديد', `${row.teamName || row.teamId || 'تيم'} · ${row.kind || 'اجتماع'} · ${row.appointmentDate || row.date || ''} ${row.startTime || ''}`);
+      }
+    } else if (old && old.status !== row.status && ['scheduled', 'rejected', 'cancelled', 'done'].includes(row.status)) {
+      const labels = { scheduled: 'تم اعتماد الاجتماع', rejected: 'تم رفض طلب الاجتماع', cancelled: 'تم إلغاء الاجتماع', done: 'تم تسجيل اكتمال الاجتماع' };
+      notifyWorkspace(labels[row.status] || 'تحديث اجتماع', `${row.appointmentDate || row.date || ''} ${row.startTime || ''}${row.meetLink ? ' · رابط Google Meet متاح' : ''}`);
+    }
+  }
+}
+function notifyConsultationChanges(previousRows, nextRows) {
+  const previous = new Map(previousRows.map(row => [row.id, row]));
+  for (const row of nextRows) {
+    const old = previous.get(row.id);
+    const changed = !old || row.lastMessage !== old.lastMessage || row.lastSenderRole !== old.lastSenderRole;
+    if (!changed) continue;
+    if (isAdmin() && row.lastSenderRole === 'team') notifyWorkspace('استشارة جديدة من تيم', `${row.teamName || row.teamId || ''} · ${row.subject || 'استشارة'}`);
+    if (!isAdmin() && old && row.lastSenderRole === 'admin') notifyWorkspace('رد جديد من الإدارة', row.subject || 'استشارتك');
+  }
 }
 function setAuthStatus(message, type='') { const el=$('#workspace-auth-status'); if(!el) return; el.textContent=message||''; el.className=`workspace-status ${type}`.trim(); }
 function setBusy(form,busy){const b=$('button[type="submit"]',form);if(b){b.disabled=busy;b.dataset.oldText ||= b.innerHTML;b.innerHTML=busy?'<i class="fa-solid fa-spinner fa-spin"></i> جاري التنفيذ...':b.dataset.oldText;}}
@@ -497,13 +543,15 @@ function clearWorkspaceLiveFeeds() {
 }
 function setupWorkspaceLiveFeeds() {
   clearWorkspaceLiveFeeds();
+  meetingFeedInitialised = false;
+  consultationFeedInitialised = false;
   if(!session)return;
   const requestRef=isAdmin()?collection(appDb,'workspaceMeetingRequests'):query(collection(appDb,'workspaceMeetingRequests'),where('teamId','==',normalizeTeamId(session.teamId)));
-  liveUnsubs.push(onSnapshot(requestRef,snap=>{meetingRows=snap.docs.map(d=>({...d.data(),id:d.id}));sortRowsByDate(meetingRows);meetingLoadError='';updateMeetingBadge();renderMeetings();},error=>{meetingLoadError=authMessage(error);console.error('Live meeting request feed failed',error);renderMeetings();}));
+  liveUnsubs.push(onSnapshot(requestRef,snap=>{const next=snap.docs.map(d=>({...d.data(),id:d.id}));if(meetingFeedInitialised)notifyMeetingChanges(meetingRows,next);else meetingFeedInitialised=true;meetingRows=next;sortRowsByDate(meetingRows);meetingLoadError='';updateMeetingBadge();renderMeetings();},error=>{meetingLoadError=authMessage(error);console.error('Live meeting request feed failed',error);renderMeetings();}));
   const slotsRef=isAdmin()?collection(appDb,'workspaceMeetingSlots'):query(collection(appDb,'workspaceMeetingSlots'),where('status','==','available'));
   liveUnsubs.push(onSnapshot(slotsRef,snap=>{meetingSlots=snap.docs.map(d=>({...d.data(),id:d.id}));meetingSlots.sort((a,b)=>`${a.date||''}T${a.startTime||''}`.localeCompare(`${b.date||''}T${b.startTime||''}`));slotLoadError='';renderMeetings();},error=>{slotLoadError=authMessage(error);console.error('Live available slot feed failed',error);renderMeetings();}));
   const consultationRef=isAdmin()?collection(appDb,'workspaceConsultations'):query(collection(appDb,'workspaceConsultations'),where('teamId','==',normalizeTeamId(session.teamId)));
-  liveUnsubs.push(onSnapshot(consultationRef,snap=>{consultationRows=snap.docs.map(d=>({...d.data(),id:d.id}));consultationRows.sort((a,b)=>dateValue(b.updatedAt||b.createdAt)-dateValue(a.updatedAt||a.createdAt));consultationLoadError='';if(!selectedConsultationId||!consultationRows.some(x=>x.id===selectedConsultationId))selectedConsultationId=consultationRows[0]?.id||'';renderConsultations();if(selectedConsultationId)subscribeConsultationMessages(selectedConsultationId);},error=>{consultationLoadError=authMessage(error);console.error('Live consultation feed failed',error);renderConsultations();}));
+  liveUnsubs.push(onSnapshot(consultationRef,snap=>{const next=snap.docs.map(d=>({...d.data(),id:d.id}));if(consultationFeedInitialised)notifyConsultationChanges(consultationRows,next);else consultationFeedInitialised=true;consultationRows=next;consultationRows.sort((a,b)=>dateValue(b.updatedAt||b.createdAt)-dateValue(a.updatedAt||a.createdAt));consultationLoadError='';if(!selectedConsultationId||!consultationRows.some(x=>x.id===selectedConsultationId))selectedConsultationId=consultationRows[0]?.id||'';renderConsultations();if(selectedConsultationId)subscribeConsultationMessages(selectedConsultationId);},error=>{consultationLoadError=authMessage(error);console.error('Live consultation feed failed',error);renderConsultations();}));
 }
 function subscribeConsultationMessages(threadId) {
   if(liveMessagesUnsub){try{liveMessagesUnsub();}catch{}liveMessagesUnsub=null;}
@@ -820,10 +868,27 @@ function stepLabel(s){return ({planned:'لم تبدأ',active:'قيد التنف
 function materialStatus(s){return ({planned:'لم تُطلب بعد',ordered:'تم طلبها',bought:'تم الشراء',partial:'تم استلام جزء',received:'تم الاستلام',missing:'ناقصة'})[s]||'قيد التجهيز'}
 function renderTeamProjects(){if(isAdmin())return;const own=allProjects.filter(p=>normalizeTeamId(p.teamId)===normalizeTeamId(session.teamId));$('#team-projects-list').innerHTML=own.map(renderTeamProjectCard).join('')||'<div class="empty-state"><i class="fa-solid fa-link"></i><strong>لم تتم مزامنة مشروعك</strong><p>لو سجلت التيم جديدًا ولم يظهر المشروع، غالبًا صلاحيات قاعدة My-Sen تحتاج إعدادًا. تواصل مع الإدارة.</p></div>';}
 function timeToMinutes(value){const [h,m]=String(value||'').split(':').map(Number);return Number.isFinite(h)&&Number.isFinite(m)?h*60+m:NaN;}
+function localDateISO(date=new Date()){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
+function isFutureMeetingSlot(slot){const dateTime=new Date(`${slot.date||''}T${slot.startTime||'00:00'}:00`);return Number.isFinite(dateTime.getTime())&&dateTime.getTime()>Date.now();}
 function displaySlot(slot){return `${slot.date||''} · ${slot.startTime||'--:--'}–${slot.endTime||'--:--'}`;}
+function formatMeetingDay(date){const d=new Date(`${date}T12:00:00`);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('ar-EG',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(d):date;}
+function renderTeamSlotCalendar(){
+  const calendar=$('#meeting-slot-calendar'),select=$('#meeting-slot-select'),selectedLabel=$('#meeting-selected-slot');
+  if(!calendar||isAdmin())return;
+  if(slotLoadError){calendar.innerHTML=`<div class="meeting-error-state">تعذر تحميل أوقات الحجز من Firebase: ${safe(slotLoadError)}. راجع قواعد workspaceMeetingSlots وتأكد من نشرها.</div>`;if(select)select.value='';if(selectedLabel)selectedLabel.textContent='تعذر تحميل المواعيد.';return;}
+  const available=meetingSlots.filter(s=>s.status==='available'&&isFutureMeetingSlot(s)).sort((a,b)=>`${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`));
+  if(select){const current=select.value;if(current&&!available.some(s=>s.id===current))select.value='';}
+  if(!available.length){calendar.innerHTML='<div class="meeting-calendar-empty"><i class="fa-regular fa-calendar-xmark"></i><strong>لا توجد مواعيد متاحة حاليًا</strong><p>ستظهر المواعيد هنا بعد أن تحدد الإدارة الأيام والساعات المتاحة.</p></div>';if(selectedLabel)selectedLabel.textContent='لم يتم اختيار موعد بعد.';return;}
+  const grouped=new Map();available.forEach(slot=>{if(!grouped.has(slot.date))grouped.set(slot.date,[]);grouped.get(slot.date).push(slot);});
+  const selectedId=select?.value||'';
+  calendar.innerHTML=[...grouped.entries()].map(([date,slots])=>`<section class="meeting-calendar-day"><header><strong><i class="fa-regular fa-calendar"></i> ${safe(formatMeetingDay(date))}</strong><span>${slots.length} ${slots.length===1?'موعد متاح':'مواعيد متاحة'}</span></header><div class="meeting-calendar-slots">${slots.map(slot=>{const duration=Math.max(0,timeToMinutes(slot.endTime)-timeToMinutes(slot.startTime));return `<button type="button" class="meeting-time-option ${slot.id===selectedId?'selected':''}" data-meeting-slot="${safe(slot.id)}" aria-pressed="${slot.id===selectedId?'true':'false'}"><strong>${safe(slot.startTime)} – ${safe(slot.endTime)}</strong><small>${duration} دقيقة</small></button>`;}).join('')}</div></section>`).join('');
+  calendar.querySelectorAll('[data-meeting-slot]').forEach(button=>button.addEventListener('click',()=>{if(!select)return;const slot=available.find(item=>item.id===button.dataset.meetingSlot);if(!slot)return;select.value=slot.id;calendar.querySelectorAll('[data-meeting-slot]').forEach(other=>{const active=other.dataset.meetingSlot===slot.id;other.classList.toggle('selected',active);other.setAttribute('aria-pressed',String(active));});if(selectedLabel)selectedLabel.textContent=`الموعد المختار: ${formatMeetingDay(slot.date)}، من ${slot.startTime} إلى ${slot.endTime}.`; }));
+  if(selectedLabel){const slot=available.find(item=>item.id===selectedId);selectedLabel.textContent=slot?`الموعد المختار: ${formatMeetingDay(slot.date)}، من ${slot.startTime} إلى ${slot.endTime}.`:'اختر يومًا ثم اضغط على الفترة المناسبة.';}
+}
 function renderMeetingSlots(){
   const select=$('#meeting-slot-select');
-  if(select){const current=select.value;const available=meetingSlots.filter(s=>s.status==='available');select.innerHTML='<option value="">'+(slotLoadError?'تعذر تحميل المواعيد؛ راجع قواعد Firebase':'اختر الموعد المناسب...')+'</option>'+available.map(s=>`<option value="${safe(s.id)}">${safe(displaySlot(s))}</option>`).join('');if(current&&available.some(s=>s.id===current))select.value=current;select.disabled=!!slotLoadError||available.length===0;}
+  if(select){const current=select.value;const available=meetingSlots.filter(s=>s.status==='available'&&isFutureMeetingSlot(s));select.innerHTML='<option value="">'+(slotLoadError?'تعذر تحميل المواعيد؛ راجع قواعد Firebase':'اختر الموعد المناسب...')+'</option>'+available.map(s=>`<option value="${safe(s.id)}">${safe(displaySlot(s))}</option>`).join('');if(current&&available.some(s=>s.id===current))select.value=current;else select.value='';select.disabled=!!slotLoadError||available.length===0;}
+  renderTeamSlotCalendar();
   const adminList=$('#meeting-admin-slots');
   if(!adminList||!isAdmin())return;
   if(slotLoadError){adminList.innerHTML=`<div class="meeting-error-state">تعذر تحميل المواعيد المتاحة: ${safe(slotLoadError)}<br>أضف قواعد workspaceMeetingSlots ثم حدّث الصفحة.</div>`;return;}
@@ -852,19 +917,40 @@ function renderMeetings() {
 async function createMeetingSlots(event){
   event.preventDefault();if(!isAdmin())return;const form=event.currentTarget;const fd=new FormData(form);const date=String(fd.get('date')||'');const start=String(fd.get('startTime')||'');const end=String(fd.get('endTime')||'');const duration=num(fd.get('slotMinutes')||30);const from=timeToMinutes(start),to=timeToMinutes(end);
   if(!date||!Number.isFinite(from)||!Number.isFinite(to)||to<=from||!duration)return showToast('راجع التاريخ وبداية ونهاية الفترة؛ النهاية لازم تكون بعد البداية.','error');
+  if(date<localDateISO()||(date===localDateISO()&&from<=new Date().getHours()*60+new Date().getMinutes()))return showToast('اختر تاريخًا مستقبليًا أو وقتًا لم يمر بعد اليوم.','error');
   const created=[];const occupied=meetingSlots.filter(s=>s.date===date);for(let m=from;m+duration<=to;m+=duration){const a=`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;const finish=m+duration;const b=`${String(Math.floor(finish/60)).padStart(2,'0')}:${String(finish%60).padStart(2,'0')}`;const overlaps=occupied.some(s=>{const x=timeToMinutes(s.startTime),y=timeToMinutes(s.endTime);return Number.isFinite(x)&&Number.isFinite(y)&&m<y&&finish>x;});if(!overlaps)created.push({date,startTime:a,endTime:b,startsAt:new Date(`${date}T${a}:00`).toISOString(),endsAt:new Date(`${date}T${b}:00`).toISOString(),status:'available',teamId:null,teamName:null,projectId:null,projectName:null,bookingRequestId:null,createdAt:serverTimestamp(),createdByUid:session.uid});}
   if(!created.length)return showToast('كل الفترات المحددة موجودة بالفعل أو تتداخل مع موعد آخر.','error');
   try{const batch=writeBatch(appDb);created.forEach(item=>batch.set(doc(collection(appDb,'workspaceMeetingSlots')),item));await batch.commit();form.reset();form.elements.namedItem('startTime').value='11:00';form.elements.namedItem('endTime').value='13:00';form.elements.namedItem('slotMinutes').value='30';await loadMeetingSlots();renderMeetings();showToast(`تم إنشاء ${created.length} موعدًا متاحًا.`, 'success');}catch(error){showToast(authMessage(error),'error');}
 }
 async function deleteAvailableSlot(id){if(!isAdmin())return;const slot=meetingSlots.find(s=>s.id===id);if(!slot||slot.status!=='available')return showToast('لا يمكن حذف موعد محجوز.','error');try{await deleteDoc(doc(appDb,'workspaceMeetingSlots',id));await loadMeetingSlots();renderMeetings();showToast('تم حذف الموعد المتاح.','success');}catch(error){showToast(authMessage(error),'error');}}
 async function submitMeetingRequest(event){
-  event.preventDefault();const form=event.currentTarget;if(!(form instanceof HTMLFormElement))return showToast('تعذر تحديد نموذج الحجز. حدّث الصفحة وحاول مرة أخرى.','error');const fd=new FormData(form);const project=allProjects.find(p=>p.id===fd.get('projectId'));const slotId=String(fd.get('slotId')||'');const slot=meetingSlots.find(s=>s.id===slotId&&s.status==='available');if(!project)return showToast('لا يوجد مشروع صالح مرتبط بتيمك.','error');if(!slot)return showToast('الموعد لم يعد متاحًا؛ حدّث قائمة المواعيد واختر موعدًا آخر.','error');
+  event.preventDefault();const form=event.currentTarget;if(!(form instanceof HTMLFormElement))return showToast('تعذر تحديد نموذج الحجز. حدّث الصفحة وحاول مرة أخرى.','error');const fd=new FormData(form);const project=allProjects.find(p=>p.id===fd.get('projectId'));const slotId=String(fd.get('slotId')||'');const slot=meetingSlots.find(s=>s.id===slotId&&s.status==='available');if(!project)return showToast('لا يوجد مشروع صالح مرتبط بتيمك.','error');if(!slot||!isFutureMeetingSlot(slot))return showToast('الموعد لم يعد متاحًا؛ حدّث قائمة المواعيد واختر موعدًا آخر.','error');
   const requestRef=doc(collection(appDb,'workspaceMeetingRequests'));const slotRef=doc(appDb,'workspaceMeetingSlots',slotId);const teamId=normalizeTeamId(session.teamId);const item={requestId:requestRef.id,teamId,teamName:session.teamName||teamId,projectId:project.id,projectName:project.name||project.id,slotId,appointmentDate:slot.date,startTime:slot.startTime,endTime:slot.endTime,startsAt:slot.startsAt||`${slot.date}T${slot.startTime}`,dateTime:slot.startsAt||`${slot.date}T${slot.startTime}`,kind:String(fd.get('kind')||'متابعة التنفيذ'),title:String(fd.get('kind')||'اجتماع'),note:String(fd.get('note')||''),status:'pending',createdAt:serverTimestamp(),createdByUid:session.uid};
   try{await runTransaction(appDb,async tx=>{const fresh=await tx.get(slotRef);if(!fresh.exists()||fresh.data().status!=='available')throw new Error('الموعد تم حجزه للتو من تيم آخر؛ اختر موعدًا بديلًا.');tx.set(requestRef,item);tx.update(slotRef,{status:'booked',teamId,teamName:item.teamName,projectId:project.id,projectName:item.projectName,bookingRequestId:requestRef.id,bookedAt:serverTimestamp()});});form.reset();await refreshAll();showToast('تم حجز الفترة وإرسال الطلب للإدارة. لن تظهر الفترة للتيمات الأخرى.','success');}catch(error){showToast(error?.message?.includes('حجزه للتو')?error.message:authMessage(error),'error');}
 }
 async function cancelMeetingRequest(id){if(isAdmin())return;const requestRef=doc(appDb,'workspaceMeetingRequests',id);try{await runTransaction(appDb,async tx=>{const requestSnap=await tx.get(requestRef);if(!requestSnap.exists())throw new Error('طلب الاجتماع غير موجود.');const row=requestSnap.data();if(normalizeTeamId(row.teamId)!==normalizeTeamId(session.teamId)||row.status!=='pending')throw new Error('يمكن إلغاء الطلبات المعلّقة الخاصة بتيمك فقط.');let slotSnap=null;let slotRef=null;if(row.slotId){slotRef=doc(appDb,'workspaceMeetingSlots',row.slotId);slotSnap=await tx.get(slotRef);}tx.update(requestRef,{status:'cancelled',cancelledAt:serverTimestamp(),updatedAt:serverTimestamp()});if(slotSnap?.exists()&&slotSnap.data().bookingRequestId===id&&slotSnap.data().status==='booked')tx.update(slotRef,{status:'available',teamId:null,teamName:null,projectId:null,projectName:null,bookingRequestId:null,releasedAt:serverTimestamp()});});await refreshAll();showToast('تم إلغاء الطلب وإعادة الموعد إلى قائمة الأوقات المتاحة.','success');}catch(error){showToast(error?.message||authMessage(error),'error');}}
 async function rejectMeeting(id){if(!isAdmin())return;const requestRef=doc(appDb,'workspaceMeetingRequests',id);try{await runTransaction(appDb,async tx=>{const requestSnap=await tx.get(requestRef);if(!requestSnap.exists())throw new Error('الطلب غير موجود.');const row=requestSnap.data();let slotRef=null,slotSnap=null;if(row.slotId){slotRef=doc(appDb,'workspaceMeetingSlots',row.slotId);slotSnap=await tx.get(slotRef);}tx.update(requestRef,{status:'rejected',rejectedAt:serverTimestamp(),updatedAt:serverTimestamp()});if(slotSnap?.exists()&&slotSnap.data().bookingRequestId===id)tx.update(slotRef,{status:'available',teamId:null,teamName:null,projectId:null,projectName:null,bookingRequestId:null,releasedAt:serverTimestamp()});});await refreshAll();showToast('تم رفض الطلب وإعادة إتاحة الفترة.','success');}catch(error){showToast(authMessage(error),'error');}}
-async function approveMeeting(id){if(!isAdmin())return;const row=meetingRows.find(x=>x.id===id);if(!row)return;const input=$(`[data-meet-link-input="${CSS.escape(id)}"]`);const url=String(input?.value||row.meetLink||'').trim();if(!/^https:\/\/meet\.google\.com\/[A-Za-z0-9-]+(?:\?.*)?$/.test(url))return showToast('أدخل رابط Google Meet صحيحًا يبدأ بـ https://meet.google.com/','error');try{await updateDoc(doc(appDb,'workspaceMeetingRequests',id),{meetLink:url,status:'scheduled',approvedAt:serverTimestamp(),updatedAt:serverTimestamp(),scheduledByUid:session.uid});if(row.slotId)await updateDoc(doc(appDb,'workspaceMeetingSlots',row.slotId),{bookingStatus:'approved',meetLink:url,approvedAt:serverTimestamp()});if(row.projectId&&window.mysenDb){const project=allProjects.find(p=>p.id===row.projectId);if(project){const meetings=Array.isArray(project.meetings)?project.meetings.filter(m=>m.sourceRequestId!==id):[];meetings.push({id:`request-${id}`,sourceRequestId:id,title:row.kind||'اجتماع متابعة',dateTime:row.startsAt||row.dateTime,link:url,status:'scheduled',notes:row.note||'',teamId:row.teamId});await window.mysenDb.collection('studio_projects').doc(project.id).set({meetings,updatedAt:new Date().toISOString()},{merge:true}).catch(e=>console.warn('Project meeting mirror failed',e));}}await refreshAll();showToast('تم اعتماد الموعد وإرسال رابط Google Meet للتيم.','success');}catch(error){showToast(authMessage(error),'error');}}
+async function approveMeeting(id){
+  if(!isAdmin())return;
+  const row=meetingRows.find(x=>x.id===id);if(!row)return;
+  const input=$(`[data-meet-link-input="${CSS.escape(id)}"]`);
+  const url=String(input?.value||row.meetLink||'').trim();
+  if(!/^https:\/\/meet\.google\.com\/[A-Za-z0-9-]+(?:\?.*)?$/.test(url))return showToast('أدخل رابط Google Meet صحيحًا يبدأ بـ https://meet.google.com/','error');
+  try{
+    const requestRef=doc(appDb,'workspaceMeetingRequests',id);
+    const slotRef=row.slotId?doc(appDb,'workspaceMeetingSlots',row.slotId):null;
+    await runTransaction(appDb,async tx=>{
+      const requestSnap=await tx.get(requestRef);
+      if(!requestSnap.exists())throw new Error('طلب الاجتماع غير موجود.');
+      if(requestSnap.data().status!=='pending')throw new Error('الطلب لم يعد معلقًا؛ حدّث القائمة.');
+      let slotSnap=null;if(slotRef)slotSnap=await tx.get(slotRef);
+      tx.update(requestRef,{meetLink:url,status:'scheduled',approvedAt:serverTimestamp(),updatedAt:serverTimestamp(),scheduledByUid:session.uid});
+      if(slotRef&&slotSnap?.exists())tx.update(slotRef,{bookingStatus:'approved',meetLink:url,approvedAt:serverTimestamp()});
+    });
+    if(row.projectId&&window.mysenDb){const project=allProjects.find(p=>p.id===row.projectId);if(project){const meetings=Array.isArray(project.meetings)?project.meetings.filter(m=>m.sourceRequestId!==id):[];meetings.push({id:`request-${id}`,sourceRequestId:id,title:row.kind||'اجتماع متابعة',dateTime:row.startsAt||row.dateTime,link:url,status:'scheduled',notes:row.note||'',teamId:row.teamId});await window.mysenDb.collection('studio_projects').doc(project.id).set({meetings,updatedAt:new Date().toISOString()},{merge:true}).catch(e=>console.warn('Project meeting mirror failed',e));}}
+    await refreshAll();showToast('تم اعتماد الموعد وإرسال رابط Google Meet للتيم.','success');
+  }catch(error){showToast(authMessage(error),'error');}
+}
 function renderConsultations(){
   const list=$('#consultation-thread-list');if(!list)return;
   if(consultationLoadError){list.innerHTML=`<div class="meeting-error-state">تعذر تحميل الاستشارات: ${safe(consultationLoadError)}. راجع قواعد workspaceConsultations.</div>`;renderConsultationDetail();return;}
@@ -899,7 +985,7 @@ async function createAdminTeam(event){event.preventDefault();if(!isAdmin())retur
 function exportFinanceCSV(){if(!isAdmin())return;const rows=[['Date','Type','Team ID','Account','Category','Party','Amount EGP','Reference','Note','Source'],...financeRows.map(x=>[x.date,x.type,x.teamId,x.account,x.category,x.party,x.amount,x.reference,x.note,x.source])];const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`nextronic-finance-${today()}.csv`;a.click();URL.revokeObjectURL(a.href);}
 async function requestProjectUpdate(){if(!session||isAdmin())return;const body=prompt('اكتب التحديث أو المعلومة التي تريد مراجعتها:');if(body===null||!body.trim())return;try{const threadRef=doc(collection(appDb,'workspaceConsultations'));const subject='طلب تحديث مشروع';const row={teamId:normalizeTeamId(session.teamId),teamName:session.teamName||session.teamId,subject,status:'open',lastMessage:body.trim(),lastSenderRole:'team',createdByUid:session.uid,createdAt:serverTimestamp(),updatedAt:serverTimestamp(),lastMessageAt:serverTimestamp()};await setDoc(threadRef,row);const messageRef=doc(collection(appDb,'workspaceConsultations',threadRef.id,'messages'));await setDoc(messageRef,{teamId:row.teamId,threadId:threadRef.id,senderUid:session.uid,senderRole:'team',senderName:session.teamName||session.teamId,message:body.trim(),attachments:[],createdAt:serverTimestamp()});await refreshAll();selectedConsultationId=threadRef.id;await loadConsultationMessages();renderConsultations();subscribeConsultationMessages(threadRef.id);showToast('تم إرسال التحديث إلى صندوق الاستشارات.','success');}catch(e){showToast(authMessage(e),'error');}}
 function bindEvents(){
-  $('#team-login-form').addEventListener('submit',loginTeam);$('#finance-transaction-form').addEventListener('submit',saveFinanceTransaction);$('#meeting-request-form').addEventListener('submit',submitMeetingRequest);$('#meeting-slot-form')?.addEventListener('submit',createMeetingSlots);$('#consultation-new-form')?.addEventListener('submit',createConsultationThread);$('#consultation-reply-form')?.addEventListener('submit',sendConsultationReply);$('#admin-create-team-form').addEventListener('submit',createAdminTeam);
+  $('#team-login-form').addEventListener('submit',loginTeam);$('#finance-transaction-form').addEventListener('submit',saveFinanceTransaction);$('#meeting-request-form').addEventListener('submit',submitMeetingRequest);$('#enable-workspace-notifications')?.addEventListener('click',enableWorkspaceNotifications);$('#meeting-slot-form')?.addEventListener('submit',createMeetingSlots);$('#consultation-new-form')?.addEventListener('submit',createConsultationThread);$('#consultation-reply-form')?.addEventListener('submit',sendConsultationReply);$('#admin-create-team-form').addEventListener('submit',createAdminTeam);
   $('#open-create-team').onclick=()=>$('#create-team-modal').classList.remove('hidden');$('#team-search').addEventListener('input',renderTeams);$('#export-finance-csv').onclick=exportFinanceCSV;$('#request-project-update').onclick=requestProjectUpdate;
   $$('[data-team-filter]').forEach(b=>b.onclick=()=>{teamFilter=b.dataset.teamFilter;$$('[data-team-filter]').forEach(x=>x.classList.toggle('active',x===b));renderTeams()});
   $$('.workspace-nav [data-page]').forEach(b=>b.onclick=()=>showPage(b.dataset.page));$$('[data-go]').forEach(b=>b.onclick=()=>showPage(b.dataset.go));
